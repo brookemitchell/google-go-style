@@ -2,6 +2,8 @@ package analyzer
 
 import (
 	"go/ast"
+	"go/token"
+	"regexp"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -10,66 +12,70 @@ import (
 )
 
 var Analyzer = &analysis.Analyzer{
-	Name:     "goprintffuncname",
-	Doc:      "Checks that printf-like functions are named with `f` at the end.",
+	Name:     "googlestyle",
+	Doc:      "Checks that code follows Google's Go Style Guide naming conventions (no snake_case)",
 	Run:      run,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
+// isSnakeCase checks if a string follows snake_case naming convention.
+func isSnakeCase(s string) bool {
+	// Only consider it snake_case if it has at least one underscore
+	// This allows all-lowercase names without underscores
+	return strings.Contains(s, "_") &&
+		regexp.MustCompile(`^[a-z]+(_[a-z0-9]+)*$`).MatchString(s)
+}
+
+func run(pass *analysis.Pass) (any, error) {
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),
+		(*ast.TypeSpec)(nil),
+		(*ast.ValueSpec)(nil),
+		(*ast.StructType)(nil),
+		(*ast.AssignStmt)(nil),
 	}
 
 	insp.Preorder(nodeFilter, func(node ast.Node) {
-		funcDecl := node.(*ast.FuncDecl)
-
-		if res := funcDecl.Type.Results; res != nil && len(res.List) != 0 {
-			return
+		switch n := node.(type) {
+		case *ast.FuncDecl:
+			checkNamingConvention(pass, n.Name.Name, n.Pos())
+		case *ast.TypeSpec:
+			checkNamingConvention(pass, n.Name.Name, n.Pos())
+		case *ast.ValueSpec:
+			for _, name := range n.Names {
+				checkNamingConvention(pass, name.Name, name.Pos())
+			}
+		case *ast.StructType:
+			// Check struct field names
+			for _, field := range n.Fields.List {
+				for _, name := range field.Names {
+					checkNamingConvention(pass, name.Name, name.Pos())
+				}
+			}
+		case *ast.AssignStmt:
+			// Check for local variable declarations (:= syntax)
+			if n.Tok == token.DEFINE {
+				for _, expr := range n.Lhs {
+					if ident, ok := expr.(*ast.Ident); ok {
+						checkNamingConvention(pass, ident.Name, ident.Pos())
+					}
+				}
+			}
 		}
-
-		params := funcDecl.Type.Params.List
-		if len(params) < 2 { // [0] must be format (string), [1] must be args (...interface{})
-			return
-		}
-
-		formatParamType, ok := params[len(params)-2].Type.(*ast.Ident)
-		if !ok { // first param type isn't identificator so it can't be of type "string"
-			return
-		}
-
-		if formatParamType.Name != "string" { // first param (format) type is not string
-			return
-		}
-
-		formatParamNames := params[len(params)-2].Names
-		if len(formatParamNames) == 0 || formatParamNames[len(formatParamNames)-1].Name != "format" {
-			return
-		}
-
-		argsParamType, ok := params[len(params)-1].Type.(*ast.Ellipsis)
-		if !ok { // args are not ellipsis (...args)
-			return
-		}
-
-		elementType, ok := argsParamType.Elt.(*ast.InterfaceType)
-		if !ok { // args are not of interface type, but we need interface{}
-			return
-		}
-
-		if elementType.Methods != nil && len(elementType.Methods.List) != 0 {
-			return // has >= 1 method in interface, but we need an empty interface "interface{}"
-		}
-
-		if strings.HasSuffix(funcDecl.Name.Name, "f") {
-			return
-		}
-
-		pass.Reportf(node.Pos(), "printf-like formatting function '%s' should be named '%sf'",
-			funcDecl.Name.Name, funcDecl.Name.Name)
 	})
 
 	return nil, nil
+}
+
+func checkNamingConvention(pass *analysis.Pass, name string, pos token.Pos) {
+	// Skip one-letter names or names starting with underscores
+	if len(name) <= 1 || name[0] == '_' {
+		return
+	}
+
+	if isSnakeCase(name) {
+		pass.Reportf(pos, "snake_case name '%s', use MixedCaps or mixedCaps rather than underscore when writing multi-word names.", name)
+	}
 }

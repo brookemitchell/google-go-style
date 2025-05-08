@@ -1,23 +1,20 @@
-# go-printf-func-name
+# Google Go Style Guide Linter
 
-The Go linter `go-printf-func-name` checks that printf-like functions are named with `f` at the end.
+The Go linter `google-go-style` applies basic linter rules from the [google go style guide](https://google.github.io/styleguide/go-style.html)
 
 ## Example
 
-`myLog` should be named `myLogf` by Go convention:
+Go source code uses MixedCaps or mixedCaps (camel case) rather than underscores (snake case) when writing multi-word names.
+`my_fn` should be named `myFn` by google go convention:
 
 ```go
 package main
 
-import "log"
-
-func myLog(format string, args ...interface{}) {
-	const prefix = "[my] "
-	log.Printf(prefix + format, args...)
+func my_fn(format string, args ...interface{}) {
+	// ...
 }
 ```
 
 ```console
-$ go vet -vettool=$(which go-printf-func-name) ./...
-./main.go:5:1: printf-like formatting function 'myLog' should be named 'myLogf'
-```
+$ go vet -vettool=$(which google-go-style) ./...
+./main.go:5:1: google-go-style guide `my_fn` should be named `myFn`

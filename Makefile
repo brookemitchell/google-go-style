@@ -9,7 +9,7 @@ lint:
 	golangci-lint run
 
 build:
-	go build ./cmd/go-printf-func-name/
+	go build ./cmd/google-go-style
 
 vet: build
-	go vet -vettool=./go-printf-func-name ./...
+	go vet -vettool=./google-go-style ./...
