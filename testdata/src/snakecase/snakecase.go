@@ -8,7 +8,9 @@ type SomeType struct {
 	goodField int
 }
 
-func some_function() {} // // want "snake_case name 'some_function', use MixedCaps or mixedCaps rather than underscore when writing multi-word names."
+func some_function() {} // want "snake_case name 'some_function', use MixedCaps or mixedCaps rather than underscore when writing multi-word names."
+
+func some_Function() {} // want "snake_case name 'some_Function', use MixedCaps or mixedCaps rather than underscore when writing multi-word names."
 
 func goodFunction() {}
 

@@ -3,7 +3,6 @@ package analyzer
 import (
 	"go/ast"
 	"go/token"
-	"regexp"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -18,12 +17,11 @@ var Analyzer = &analysis.Analyzer{
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 }
 
-// isSnakeCase checks if a string follows snake_case naming convention.
+// isSnakeCase checks if a string follows snake_case naming convention
+// or has underscores in it (which we want to flag).
 func isSnakeCase(s string) bool {
-	// Only consider it snake_case if it has at least one underscore
-	// This allows all-lowercase names without underscores
-	return strings.Contains(s, "_") &&
-		regexp.MustCompile(`^[a-z]+(_[a-z0-9]+)*$`).MatchString(s)
+	// Flag any identifier with underscores
+	return strings.Contains(s, "_") && s[0] != '_'
 }
 
 func run(pass *analysis.Pass) (any, error) {
